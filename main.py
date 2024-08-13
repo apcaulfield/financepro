@@ -130,7 +130,7 @@ class GUI:
                 return pn.Column(*self.components["data"]["add"].values())
 
             def __create_search_data_layout():
-                """Creates the layout of the "add category" tab."""
+                """Creates the layout of the "search" tab."""
                 return pn.Column(*self.components["data"]["search"].values())
 
             # END: create_add_x_layout functions
