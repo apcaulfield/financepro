@@ -2,6 +2,8 @@
 
 from typing import Dict, Any
 
+from bokeh.models.widgets.tables import NumberFormatter
+import pandas as pd
 import panel as pn
 
 # Load CSS formatting file
@@ -11,8 +13,6 @@ with open("CSS/gui_bootstrap.css") as f:
 
 class GUI:
     def __init__(self) -> None:
-        """Initializes the GUI class object."""
-
         self.template = pn.template.BootstrapTemplate(
             title="Finance Pro",
         )
@@ -21,7 +21,7 @@ class GUI:
         self.__create_layout()
 
     def __create_components(self) -> Dict[str, Any]:
-        """Function that returns all components present in the GUI."""
+        """Returns all components present in the GUI."""
 
         def __create_data_components() -> Dict[str, Any]:
             """Contains functions that create widgets associated with managing data."""
@@ -63,7 +63,7 @@ class GUI:
                     "description": input_specific_expense_description,
                 }
 
-            def __create_delete_expense():
+            def __create_delete_expense() -> Dict[str, Any]:
                 """Widgets for deleting an expense."""
 
                 options = ["Name", "Category", "Tag(s)", "Location", "Description"]
@@ -88,8 +88,35 @@ class GUI:
                 "delete": __create_delete_expense(),
             }
 
+        # END: create_data_components()
+
+        def __create_visual_components():
+            """Contains functions that create components associated with visualizing data."""
+
+            def __create_tabulator():
+                """Widgets associated with the tabulator."""
+
+                tabulator_formats = {"float": NumberFormatter(format="$0.00")}
+                df = pd.DataFrame(
+                    {
+                        "Name": [],
+                        "Amount": [],
+                        "Category": [],
+                        "Tags": [],
+                        "Date": [],
+                        "Time": [],
+                        "Description": [],
+                    }
+                )
+                tabulator = pn.widgets.Tabulator(df, formatters=tabulator_formats)
+
+                return tabulator
+
+            return {"tabulator": __create_tabulator()}
+
         return {
             "data": __create_data_components(),
+            "visual": __create_visual_components(),
         }
 
     def __create_layout(self):
@@ -111,8 +138,12 @@ class GUI:
                 ("Delete", __create_delete_data_layout()),
             )
 
+        # Sidebar
         sidebar_tabs = pn.Tabs(("Data", __create_data_layouts()), ("View", None))
         self.template.sidebar.append(sidebar_tabs)
+
+        # Main
+        self.template.main.append(self.components["visual"]["tabulator"])
 
     def serve_layout(self):
         """Function that is accessed by pn.serve()."""
