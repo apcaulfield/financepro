@@ -63,7 +63,7 @@ class GUI:
                     "description": input_specific_expense_description,
                 }
 
-            def __create_delete_expense() -> Dict[str, Any]:
+            def __create_search_expense() -> Dict[str, Any]:
                 """Widgets for deleting an expense."""
 
                 options = ["Name", "Category", "Tag(s)", "Location", "Description"]
@@ -85,7 +85,7 @@ class GUI:
 
             return {
                 "add": __create_add_expense(),
-                "delete": __create_delete_expense(),
+                "search": __create_search_expense(),
             }
 
         # END: create_data_components()
@@ -114,6 +114,8 @@ class GUI:
 
             return {"tabulator": __create_tabulator()}
 
+        # END: create_visual_components()
+
         return {
             "data": __create_data_components(),
             "visual": __create_visual_components(),
@@ -127,15 +129,15 @@ class GUI:
                 """Creates the layout of the "add expense" tab."""
                 return pn.Column(*self.components["data"]["add"].values())
 
-            def __create_delete_data_layout():
+            def __create_search_data_layout():
                 """Creates the layout of the "add category" tab."""
-                return pn.Column(*self.components["data"]["delete"].values())
+                return pn.Column(*self.components["data"]["search"].values())
 
             # END: create_add_x_layout functions
 
             return pn.Tabs(
                 ("Add", __create_add_data_layout()),
-                ("Delete", __create_delete_data_layout()),
+                ("Search", __create_search_data_layout()),
             )
 
         # Sidebar
