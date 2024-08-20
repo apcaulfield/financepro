@@ -131,8 +131,8 @@ class GUI:
         }
 
     def add_expense_btn_clk(self, event):
-        """Writes expense data in respective fields to user memory.
-        Called when save expense button is clicked."""
+        """Writes expense data fields to user memory.
+        Called when the add expense button is clicked."""
 
         # Check for required fields
         missing_fields = []
