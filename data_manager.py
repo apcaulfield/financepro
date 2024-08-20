@@ -3,7 +3,6 @@ import platform
 import logging
 import json
 from pathlib import Path
-from typing import Dict, Any
 import humanize
 import msgspec
 
@@ -160,7 +159,7 @@ class Data:
 
     def load_data(self):
         """Loads user data and config from respective files.
-        This function initializes the boot_user_data and boot_user_config attributes.
+        Initializes the boot_user_data and boot_user_config attributes.
         """
 
         with open(self.user_data_file, "r") as file:
@@ -186,4 +185,3 @@ class Data:
         """
 
         self.new_user_data["expenses"].append(expense)
-        self.combined_user_data["expenses"].append(expense)

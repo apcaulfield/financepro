@@ -130,8 +130,8 @@ class GUI:
             "visual": __create_visual_components(),
         }
 
-    def save_expense(self, event):
-        """Writes expense data in fields to user memory.
+    def add_expense_btn_clk(self, event):
+        """Writes expense data in respective fields to user memory.
         Called when save expense button is clicked."""
 
         # Check for required fields
@@ -159,13 +159,13 @@ class GUI:
         )
 
         # Add expense to user memory
-        self.data_manager.new_user_data.append(expense_data)
+        self.data_manager.add_expense(expense_data)
 
     def __create_watchers(self):
         """Function that defines widget dependencies."""
 
         def __create_add_expense_watchers():
-            self.components["data"]["add"]["button"].on_click(self.save_expense)
+            self.components["data"]["add"]["button"].on_click(self.add_expense_btn_clk)
 
     def __create_layout(self):
         def __create_data_layouts():
