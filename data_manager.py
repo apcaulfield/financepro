@@ -3,9 +3,43 @@ import platform
 import logging
 import json
 from pathlib import Path
+from typing import Dict, Any
 import humanize
+import msgspec
 
 logger = logging.getLogger(__name__)
+
+
+class MasterList(msgspec.Struct):
+    """Contains sets of all unique names, categories, and tags."""
+
+    names: set[str] = set()
+    categories: set[str] = set()
+    tags: set[str] = set()
+
+
+class Expense(msgspec.Struct):
+    """Describes data associated with an expense."""
+
+    amount: float
+    name: str
+    category: str
+    tags: set[str] | None = set()
+    date: str | None = None
+    time: str | None = None
+    description: str | None = None
+    notes: str | None = None
+
+
+class DateTime(msgspec.Struct):
+    """Describes data associated with a DatetimePicker Panel widget."""
+
+    year: int
+    month: int
+    day: int
+    hour: int
+    minute: int
+    second: int | None = 0
 
 
 class Data:
@@ -19,8 +53,12 @@ class Data:
         Directory for app data of current user.
     user_data_file
         Path to the JSON data file of the current user.
-    data
-        Dictionary of all user expenses.
+    boot_user_data
+        Dictionary of all user expenses at the time of login.
+    boot_user_config
+        User configuration at the time of login.
+    new_user_data
+        Dictionary of all new data inputted since login.
 
     """
 
@@ -43,6 +81,13 @@ class Data:
 
         # Load data from files
         self.load_data()
+        # Represents all new data for this session
+        self.new_user_data = {
+            "expenses": [],
+            "names": [],
+            "categories": [],
+            "tags": [],
+        }
 
     def get_appdata_path(self):
         """Function that sets the appdata path to save/load user data from."""
@@ -114,9 +159,31 @@ class Data:
             json.dump(user_config, file)
 
     def load_data(self):
-        """Loads user data and config from respective files."""
+        """Loads user data and config from respective files.
+        This function initializes the boot_user_data and boot_user_config attributes.
+        """
 
         with open(self.user_data_file, "r") as file:
-            self.user_data = json.load(file)
+            self.boot_user_data = json.load(file)
+        # Initialize combined data
+        self.combined_user_data = self.boot_user_data
+
         with open(self.user_config_file, "r") as file:
-            self.user_config = json.load(file)
+            self.boot_user_config = json.load(file)
+
+    def save_data(self):
+        """Handles saving user data to JSON files."""
+        pass
+
+    def add_expense(self, expense: Expense):
+        """Handles adding an expense.
+
+        Parameters
+        ----------
+        expense
+            Expense object containing all expense data.
+
+        """
+
+        self.new_user_data["expenses"].append(expense)
+        self.combined_user_data["expenses"].append(expense)

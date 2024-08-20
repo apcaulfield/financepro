@@ -6,6 +6,11 @@ from bokeh.models.widgets.tables import NumberFormatter
 import pandas as pd
 import panel as pn
 
+from data_manager import Data, Expense, DateTime
+
+# Turn on notifications
+pn.extension(notifications=True)
+
 # Load CSS formatting file
 with open("CSS/gui_bootstrap.css") as f:
     pn.config.raw_css.append(f.read())
@@ -18,6 +23,7 @@ class GUI:
         )
 
         self.components = self.__create_components()
+        self.data_manager = Data()
         self.__create_layout()
 
     def __create_components(self) -> Dict[str, Any]:
@@ -30,8 +36,8 @@ class GUI:
                 """Widgets for adding a new expense."""
                 input_expense_amount = pn.widgets.FloatInput(
                     name="Amount",
+                    placeholder="Required",
                     start=0.00,
-                    placeholder="0.00",
                     step=1,
                 )
                 input_expense_name = pn.widgets.AutocompleteInput(
@@ -53,6 +59,7 @@ class GUI:
                     height=300,
                     resizable="height",
                 )
+                btn_add_expense = pn.widgets.Button(name="Add Expense")
 
                 return {
                     "amount": input_expense_amount,
@@ -61,6 +68,7 @@ class GUI:
                     "tags": input_expense_tags,
                     "time": input_expense_date_time,
                     "description": input_specific_expense_description,
+                    "button": btn_add_expense,
                 }
 
             def __create_search_expense() -> Dict[str, Any]:
@@ -106,6 +114,7 @@ class GUI:
                         "Date": [],
                         "Time": [],
                         "Description": [],
+                        "Notes": [],
                     }
                 )
                 tabulator = pn.widgets.Tabulator(df, formatters=tabulator_formats)
@@ -120,6 +129,43 @@ class GUI:
             "data": __create_data_components(),
             "visual": __create_visual_components(),
         }
+
+    def save_expense(self, event):
+        """Writes expense data in fields to user memory.
+        Called when save expense button is clicked."""
+
+        # Check for required fields
+        missing_fields = []
+        if self.components["data"]["add"]["amount"].value == None:
+            missing_fields.append("Amount")
+        if self.components["data"]["add"]["name"].value == None:
+            missing_fields.append("Name")
+        if self.components["data"]["add"]["category"].value == None:
+            missing_fields.append("Category")
+        if missing_fields:
+            # Missing field is present
+            pn.state.notifications.error("Missing fields: " + ", ".join(missing_fields))
+            # Don't save current expense
+            return
+
+        expense_data = Expense(
+            amount=self.components["data"]["add"]["amount"].value,
+            name=self.components["data"]["add"]["name"].value,
+            category=self.components["data"]["add"]["category"].value,
+            tags=self.components["data"]["add"]["tags"].value,
+            time=self.components["data"]["add"]["time"].value,
+            description=self.components["data"]["add"]["description"].value,
+            notes=self.components["data"]["add"]["notes"].value,
+        )
+
+        # Add expense to user memory
+        self.data_manager.new_user_data.append(expense_data)
+
+    def __create_watchers(self):
+        """Function that defines widget dependencies."""
+
+        def __create_add_expense_watchers():
+            self.components["data"]["add"]["button"].on_click(self.save_expense)
 
     def __create_layout(self):
         def __create_data_layouts():
