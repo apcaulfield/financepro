@@ -6,7 +6,7 @@ from bokeh.models.widgets.tables import NumberFormatter
 import pandas as pd
 import panel as pn
 
-from data_manager import Data, Expense, DateTime
+from data_manager import DataManager, Expense
 
 # Turn on notifications
 pn.extension(notifications=True)
@@ -23,7 +23,7 @@ class GUI:
         )
 
         self.components = self.__create_components()
-        self.data_manager = Data()
+        self.data_manager = DataManager()
         self.__create_layout()
 
     def __create_components(self) -> Dict[str, Any]:

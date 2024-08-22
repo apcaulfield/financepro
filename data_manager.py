@@ -8,15 +8,6 @@ import msgspec
 
 logger = logging.getLogger(__name__)
 
-
-class MasterList(msgspec.Struct):
-    """Contains sets of all unique names, categories, and tags."""
-
-    names: set[str] = set()
-    categories: set[str] = set()
-    tags: set[str] = set()
-
-
 class Expense(msgspec.Struct):
     """Describes data associated with an expense."""
 
@@ -28,6 +19,22 @@ class Expense(msgspec.Struct):
     time: str | None = None
     description: str | None = None
     notes: str | None = None
+
+class UserData(msgspec.Struct):
+    """Describes the structure of all user JSON data."""
+    
+    expenses: set[Expense] = set()
+    names: set[str] = set()
+    categories: set[str] = set()
+    tags: set[str] = set()
+
+
+# class MasterList(msgspec.Struct):
+#     """Contains sets of all unique names, categories, and tags."""
+
+#     names: set[str] = set()
+#     categories: set[str] = set()
+#     tags: set[str] = set()
 
 
 class DateTime(msgspec.Struct):
@@ -41,7 +48,7 @@ class DateTime(msgspec.Struct):
     second: int | None = 0
 
 
-class Data:
+class DataManager:
     """Class for managing user data.
 
     Attributes
@@ -52,7 +59,7 @@ class Data:
         Directory for app data of current user.
     user_data_file
         Path to the JSON data file of the current user.
-    boot_user_data
+    boot_user_expenses
         Dictionary of all user expenses at the time of login.
     boot_user_config
         User configuration at the time of login.
@@ -95,11 +102,11 @@ class Data:
         os_type = platform.system()
         if os_type == "Darwin":  # macOS
             self.app_data_dir = os.path.join(
-                os.path.expanduser("~"), "Library", "Application Support", "financepro"
+                os.path.expanduser('~'), "Library", "Application Support", "financepro"
             )
         elif os_type == "Linux":  # Linux
             self.app_data_dir = os.path.join(
-                os.path.expanduser("~"), ".local", "share", "financepro"
+                os.path.expanduser('~'), ".local", "share", "financepro"
             )
         elif os_type == "Windows":  # Windows
             self.app_data_dir = os.path.join(os.getenv("APPDATA"), "financepro")
@@ -109,16 +116,16 @@ class Data:
         # User data directory
         self.user_app_data_dir = os.path.join(self.app_data_dir, self.username)
         # User data file
-        self.user_data_file = os.path.join(self.user_app_data_dir, "user_data.json")
-        # User config file
-        self.user_config_file = os.path.join(self.user_app_data_dir, "user_config.json")
+        self.user_data_file = os.path.join(self.user_app_data_dir, "data.json")
+        # User configuration file
+        self.user_config_file = os.path.join(self.user_app_data_dir, "config.json")
 
-        if not os.path.isfile(self.user_data_file):
-            # User data does not exist
+        if not os.path.isdir(self.user_app_data_dir):
+            # User app data folder does not exist
             try:
-                os.makedirs(os.path.dirname(self.user_data_file))
+                os.makedirs(self.user_app_data_dir)
             except FileExistsError:
-                # TODO: File actually does exist
+                # TODO: Directory actually does exist
                 pass
 
             return False
@@ -129,10 +136,10 @@ class Data:
     def get_user_data_size(self):
         """Function for determining the overall size of the user's data files."""
 
-        # Sum sizes of all files in directory recursively
+        # Sum sizes of all files in directory and its subdirectories
         total_size = sum(
             f.stat().st_size
-            for f in Path(self.user_app_data_dir).rglob("*")
+            for f in Path(self.user_app_data_dir).rglob('*')
             if f.is_file()
         )
         # Convert total file size to human readable format
@@ -142,7 +149,7 @@ class Data:
         """Function that initializes files and data for a new user."""
 
         # Create new data file for user
-        with open(self.user_data_file, "w") as file:
+        with open(self.user_data_file, 'w') as file:
             json.dump({}, file)
 
         # Create new config/info file for user
@@ -153,21 +160,22 @@ class Data:
             "data_size": user_data_size,
         }
         with open(
-            os.path.join(self.user_app_data_dir, "user_config.json"), "w"
+            os.path.join(self.user_app_data_dir, "user_config.json"), 'w'
         ) as file:
             json.dump(user_config, file)
 
     def load_data(self):
         """Loads user data and config from respective files.
-        Initializes the boot_user_data and boot_user_config attributes.
+        Initializes the boot_user_expenses and boot_user_config attributes.
         """
+        # Load user data file 
+        with open(self.user_data_file, 'r') as file:
+            self.boot_user_data = msgspec.json.decode(file, type=UserData)
+        # Initialize combined user expenses
+        self.combined_user_expenses = self.boot_user_data
 
-        with open(self.user_data_file, "r") as file:
-            self.boot_user_data = json.load(file)
-        # Initialize combined data
-        self.combined_user_data = self.boot_user_data
-
-        with open(self.user_config_file, "r") as file:
+        # Load user configuration file
+        with open(self.user_config_file, 'r') as file:
             self.boot_user_config = json.load(file)
 
     def save_data(self):
