@@ -1,7 +1,7 @@
 import os
 import platform
 import logging
-import json
+import re
 import datetime
 from pathlib import Path
 from typing import List
@@ -19,7 +19,9 @@ class Expense(msgspec.Struct):
     name: str
     category: str
     tags: set[str] | None = set()
-    date_time: datetime.datetime = None
+    date_time: datetime.datetime | None = (
+        None  # TODO: Leaving DatetimePicker GUI widget empty results in GUI Tabulator trying to access non-existing .year, .month, etc. values
+    )
     description: str | None = None
     notes: str | None = None
 
@@ -47,9 +49,9 @@ class DataManager:
     Attributes
     ----------
     app_data_dir
-        Directory for financepro app data.
+        Directory for financepro AppData.
     user_app_data_dir
-        Directory for app data of current user.
+        Directory for AppData of current user.
     user_data_file
         Path to the JSON data file of the current user.
     boot_user_data
@@ -57,9 +59,9 @@ class DataManager:
     boot_user_config
         User configuration at the time of login.
     new_user_data
-        Dictionary containing all new data inputted since login.
+        UserData object containing all new data inputted since last save.
     combined_user_data
-        Dictionary containing data from boot up and data created during current execution.
+        UserData object containing data from boot up and data created during current execution.
 
     """
 
@@ -75,8 +77,16 @@ class DataManager:
 
         self.username = username
 
-        # Find file path of user data based on OS
-        if not self.set_appdata_path():
+        # Find file path of user data based on OS and return True if it already exists
+        user_AppData_folder_exists = self.set_AppData_path()
+
+        # Create new blank logging file
+        with open(self.user_logging_file, "w"):
+            pass
+        logging.basicConfig(filename=self.user_logging_file, level=logging.INFO)
+
+        # AppData folder for specified username does not exist
+        if not user_AppData_folder_exists:
             # User data folder not found - create it
             self.create_new_user()
 
@@ -85,12 +95,12 @@ class DataManager:
         # Represents all new data for this session
         self.new_user_data = UserData()
 
-    def set_appdata_path(self) -> bool:
-        """Function that sets the appdata path to save/load user data from.
-        Returns true if the user already exists and returns false if
-        the user app data directory cannot be found."""
+    def set_AppData_path(self) -> bool:
+        """Function that sets the AppData path to save/load user data from.
+        Returns True if the user already exists and returns False if
+        the user AppData directory cannot be found. Called on sign in."""
 
-        # Determine app data path based on OS
+        # Determine AppData path based on OS
         os_type = platform.system()
         if os_type == "Darwin":  # macOS
             self.app_data_dir = os.path.join(
@@ -101,7 +111,7 @@ class DataManager:
                 os.path.expanduser("~"), ".local", "share", "financepro"
             )
         elif os_type == "Windows":  # Windows
-            self.app_data_dir = os.path.join(os.getenv("APPDATA"), "financepro")
+            self.app_data_dir = os.path.join(os.getenv("AppData"), "financepro")
         else:
             raise NotImplementedError(f"Unsupported operating system: {os_type}")
 
@@ -111,14 +121,26 @@ class DataManager:
         self.user_data_file = os.path.join(self.user_app_data_dir, "data.json")
         # User configuration file
         self.user_config_file = os.path.join(self.user_app_data_dir, "config.json")
+        # User logging file
+        self.user_logging_file = os.path.join(
+            self.user_app_data_dir, "data_manager.log"
+        )
 
         if not os.path.isdir(self.user_app_data_dir):
-            # User app data folder does not exist
+            # User AppData folder does not exist
             try:
                 os.makedirs(self.user_app_data_dir)
             except FileExistsError:
-                # TODO: Directory was created between the time of checking if it exists and making it
-                pass
+                # Directory was created between the time of checking if it exists and making it (edge case)
+                logger.warning(
+                    f"Directory {self.user_app_data_dir} already existed on bootup."
+                )
+                if os.path.isfile(self.user_data_file):
+                    # Data file already exists - don't call create new user function
+                    logger.warning(
+                        f"Data file found after unexpected existing directory on boot up. Not creating a new user."
+                    )
+                    return True
 
             # User does not exist
             return False
@@ -166,18 +188,81 @@ class DataManager:
         # Load user data file
         with open(self.user_data_file, "rb") as file:
             file_contents = file.read()
-            self.boot_user_data = msgspec.json.decode(file_contents, type=UserData)
+            try:
+                self.boot_user_data = msgspec.json.decode(file_contents, type=UserData)
+            except msgspec.ValidationError as e:
+                # Convert error message to string and identify what caused it
+                message = str(e)
+
+                # Matches the field causing the error
+                match = re.search(r"at '\$\.(.+?)'", message).group(1)
+                if match:
+                    logger.exception(f"Value at {match} appears to be an invalid type.")
+                else:
+                    # Could not find match
+                    logger.exception(f"Unable to find what field caused this error.")
+
+                # TODO: Remove or modify invalid field so file can be loaded
+
         # Initialize combined user expenses
         self.combined_user_data = self.boot_user_data
 
         # Load user configuration file
         with open(self.user_config_file, "rb") as file:
-            self.boot_user_config = json.load(file)
+            file_contents = file.read()
+            self.boot_user_config = msgspec.json.decode(file_contents, type=UserConfig)
+        # Initialize config object that gets updated after boot up
+        self.current_user_config = self.boot_user_config
+        self.current_user_config.launches += 1
 
     def save_data(self):
         """Handles saving user data to JSON files."""
-        # TODO
-        pass
+
+        # Write combined_user_data to JSON data file
+        # TODO: Expense not being written to JSON file
+        with open(self.user_data_file, "wb") as file:
+            data = msgspec.json.encode(self.combined_user_data)
+            file.write(data)
+
+        # Set new_user_data back to nothing
+        self.new_user_data = UserData()
+
+        # Update user config file
+        self.current_user_config.data_size = self.get_user_data_size()
+        with open(self.user_config_file, "wb") as file:
+            data = msgspec.json.encode(self.current_user_config)
+            file.write(data)
+
+    def revert_data(self):
+        """Reverts data to last save point."""
+
+        # Revert expenses
+        self.combined_user_data.expenses = [
+            expense
+            for expense in self.combined_user_data.expenses
+            if expense not in self.new_user_data.expenses
+        ]
+        # Revert names
+        self.combined_user_data.names = [
+            name
+            for name in self.combined_user_data.names
+            if name not in self.new_user_data.names
+        ]
+        # Revert categories
+        self.combined_user_data.categories = [
+            category
+            for category in self.combined_user_data.categories
+            if category not in self.new_user_data.categories
+        ]
+        # Revert tags
+        self.combined_user_data.tags = [
+            tag
+            for tag in self.combined_user_data.tags
+            if tag not in self.new_user_data.tags
+        ]
+
+        # Reset new_user_data
+        self.new_user_data = UserData()
 
     def add_expense(self, expense: Expense):
         """Handles adding an expense.
@@ -191,12 +276,13 @@ class DataManager:
 
         # Add name, category, and tags to respective lists if they are not in them already
         self.new_user_data.expenses.append(expense)
+        self.combined_user_data.expenses.append(expense)
         if expense.name not in self.combined_user_data.names:
-            self.combined_user_data.names.add(expense.name)
             self.new_user_data.names.add(expense.name)
+            self.combined_user_data.names.add(expense.name)
         if expense.category not in self.combined_user_data.categories:
-            self.combined_user_data.categories.add(expense.category)
             self.new_user_data.categories.add(expense.category)
+            self.combined_user_data.categories.add(expense.category)
         new_tags = set(expense.tags) - self.combined_user_data.tags
-        self.combined_user_data.tags.update(new_tags)
         self.new_user_data.tags.update(new_tags)
+        self.combined_user_data.tags.update(new_tags)
