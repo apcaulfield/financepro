@@ -19,9 +19,7 @@ class Expense(msgspec.Struct):
     name: str
     category: str
     tags: set[str] | None = set()
-    date_time: datetime.datetime | None = (
-        None  # TODO: Leaving DatetimePicker GUI widget empty results in GUI Tabulator trying to access non-existing .year, .month, etc. values
-    )
+    date_time: datetime.datetime | None = None
     description: str | None = None
     notes: str | None = None
 
@@ -92,7 +90,7 @@ class DataManager:
 
         # Load data from files
         self.load_data()
-        # Represents all new data for this session
+        # Holds all new data for this session
         self.new_user_data = UserData()
 
     def set_AppData_path(self) -> bool:
@@ -194,8 +192,8 @@ class DataManager:
                 # Convert error message to string and identify what caused it
                 message = str(e)
 
-                # Matches the field causing the error
-                match = re.search(r"at '\$\.(.+?)'", message).group(1)
+                # Matches the specific field causing the error
+                match = re.search(r"at '\$\.(.+)'", message).group(1)
                 if match:
                     logger.exception(f"Value at {match} appears to be an invalid type.")
                 else:
@@ -219,7 +217,6 @@ class DataManager:
         """Handles saving user data to JSON files."""
 
         # Write combined_user_data to JSON data file
-        # TODO: Expense not being written to JSON file
         with open(self.user_data_file, "wb") as file:
             data = msgspec.json.encode(self.combined_user_data)
             file.write(data)

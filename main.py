@@ -31,7 +31,7 @@ class GUI:
     def go_to_login_page(self, event):
         """Called when returning to the login page."""
 
-        # Check if unsaved data was present
+        # Actions to be taken if unsaved data was present
         if event.obj.name == "Yes":
             # User chose to save data
             self.data_manager.save_data()
@@ -138,7 +138,7 @@ class GUI:
 
                 tabulator_formats = {"float": NumberFormatter(format="$0.00")}
 
-                # Extract all data fields
+                # Extracts all data fields, handles empty fields appropriately
                 names = [
                     expense.name
                     for expense in self.data_manager.combined_user_data.expenses
@@ -218,6 +218,7 @@ class GUI:
 
         # END: create_data_components()
 
+        # BEGIN: create_visual_components()
         def __create_visual_components():
             """Contains functions that create components associated with visualizing data."""
             return None
@@ -226,6 +227,8 @@ class GUI:
 
         def __create_logout_components():
             """Widgets associated with logging in and out."""
+
+            # Logout button in header
             logout_btn = pn.widgets.Button(name="Logout")
 
             # Buttons to chose whether or not to keep unsaved data
@@ -276,9 +279,8 @@ class GUI:
                 Called when the add expense button is clicked."""
 
                 # Check for required fields
-                # TODO: Currently doesn't work
                 missing_fields = []
-                if self.components["data"]["add"]["amount"].value == None:
+                if self.components["data"]["add"]["amount"].value in [0, None]:
                     missing_fields.append("Amount")
                 if self.components["data"]["add"]["name"].value in ["", None]:
                     missing_fields.append("Name")
@@ -314,7 +316,6 @@ class GUI:
                 self.components["data"]["add"]["notes"].value = ""
 
                 # TODO: Update tabulator
-                # self.components["data"]["tabulator"]
 
             # === Create watchers === #
             self.components["data"]["add"]["button"].on_click(add_expense_btn_clk)
@@ -322,7 +323,7 @@ class GUI:
         def __create_manage_data_watchers():
             """Defines dependencies and behavior for widgets under the "manage" tab."""
 
-            # Save data button f
+            # Save data button
             self.components["data"]["manage"]["save"].on_click(
                 lambda _event: self.data_manager.save_data()
             )
@@ -338,8 +339,7 @@ class GUI:
         def __create_data_layouts():
             """Creates layout of data managing components."""
 
-            # BEGIN: Functions that generate widgets for each tab in sidebar
-
+            # BEGIN: sidebar tab widget layouts
             def __create_add_data_layout():
                 """Creates the layout of the "add expense" tab."""
                 return pn.Column(*self.components["data"]["add"].values())
