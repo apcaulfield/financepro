@@ -2,6 +2,7 @@ import os
 import platform
 import logging
 import json
+import datetime
 from pathlib import Path
 from typing import List
 
@@ -18,8 +19,7 @@ class Expense(msgspec.Struct):
     name: str
     category: str
     tags: set[str] | None = set()
-    date: str | None = None
-    time: str | None = None
+    date_time: datetime.datetime = None
     description: str | None = None
     notes: str | None = None
 
@@ -41,25 +41,6 @@ class UserConfig(msgspec.Struct):
     data_size: str
 
 
-# class MasterList(msgspec.Struct):
-#     """Contains sets of all unique names, categories, and tags."""
-
-#     names: set[str] = set()
-#     categories: set[str] = set()
-#     tags: set[str] = set()
-
-
-class DateTime(msgspec.Struct):
-    """Describes data associated with a DatetimePicker Panel widget."""
-
-    year: int
-    month: int
-    day: int
-    hour: int
-    minute: int
-    second: int | None = 0
-
-
 class DataManager:
     """Class for managing user data.
 
@@ -71,7 +52,7 @@ class DataManager:
         Directory for app data of current user.
     user_data_file
         Path to the JSON data file of the current user.
-    boot_user_expenses
+    boot_user_data
         Dictionary of all user expenses at the time of login.
     boot_user_config
         User configuration at the time of login.
@@ -102,12 +83,7 @@ class DataManager:
         # Load data from files
         self.load_data()
         # Represents all new data for this session
-        self.new_user_data = {
-            "expenses": [],
-            "names": [],
-            "categories": [],
-            "tags": [],
-        }
+        self.new_user_data = UserData()
 
     def set_appdata_path(self) -> bool:
         """Function that sets the appdata path to save/load user data from.
@@ -184,7 +160,7 @@ class DataManager:
 
     def load_data(self):
         """Loads user data and config from respective files.
-        Initializes the boot_user_expenses, combined_user_expenses, and boot_user_config attributes.
+        Initializes the boot_user_data, combined_user_data, and boot_user_config attributes.
         """
 
         # Load user data file
@@ -192,7 +168,7 @@ class DataManager:
             file_contents = file.read()
             self.boot_user_data = msgspec.json.decode(file_contents, type=UserData)
         # Initialize combined user expenses
-        self.combined_user_expenses = self.boot_user_data
+        self.combined_user_data = self.boot_user_data
 
         # Load user configuration file
         with open(self.user_config_file, "rb") as file:
@@ -200,6 +176,7 @@ class DataManager:
 
     def save_data(self):
         """Handles saving user data to JSON files."""
+        # TODO
         pass
 
     def add_expense(self, expense: Expense):
@@ -212,5 +189,14 @@ class DataManager:
 
         """
 
-        # TODO: Add name, category, and tags to respective lists if they are not in them already
-        self.new_user_data["expenses"].append(expense)
+        # Add name, category, and tags to respective lists if they are not in them already
+        self.new_user_data.expenses.append(expense)
+        if expense.name not in self.combined_user_data.names:
+            self.combined_user_data.names.add(expense.name)
+            self.new_user_data.names.add(expense.name)
+        if expense.category not in self.combined_user_data.categories:
+            self.combined_user_data.categories.add(expense.category)
+            self.new_user_data.categories.add(expense.category)
+        new_tags = set(expense.tags) - self.combined_user_data.tags
+        self.combined_user_data.tags.update(new_tags)
+        self.new_user_data.tags.update(new_tags)
