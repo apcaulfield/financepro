@@ -8,6 +8,9 @@ import panel as pn
 
 from data_manager import DataManager, UserData
 
+# Default height of the MultiChoice widget
+MULTICHOICE_HEIGHT = 66
+
 # Turn on notifications
 pn.extension(notifications=True)
 
@@ -17,7 +20,7 @@ with open("CSS/gui_bootstrap.css") as f:
 
 
 class GUI:
-    def __init__(self) -> None:
+    def __init__(self):
         self.data_manager = DataManager()
         self.template = pn.template.BootstrapTemplate(
             title=f"Finance Pro: {self.data_manager.username}",
@@ -27,7 +30,7 @@ class GUI:
         self.__create_watchers()
         self.__create_layout()
 
-    def go_to_login_page(self, event):
+    def go_to_login_page(self, event) -> None:
         """Called when returning to the login page."""
 
         # Actions to be taken if unsaved data was present
@@ -40,10 +43,10 @@ class GUI:
 
         self.components["logout"]["prompt"].visible = False
 
-    def logout_btn_clk(self, _event):
+    def logout_btn_clk(self, _event) -> None:
         """Called when the "Logout" button is clicked."""
 
-        # Check if user has unsaved expenses
+        # Check if user has unsaved data
         if self.data_manager.new_user_data != UserData():
             self.components["data"]["tabulator"].visible = False
             # Text of prompt is updated with number of unsaved expenses
@@ -92,7 +95,7 @@ class GUI:
                 input_new_tags = pn.widgets.TextInput(
                     name="Enter a new tag",
                     width=165,
-                    height=66,
+                    height=MULTICHOICE_HEIGHT,
                 )
                 input_expense_date_time = pn.widgets.DatetimePicker(
                     name="Date/Time", enable_seconds=False, military_time=False
@@ -232,7 +235,7 @@ class GUI:
 
         # END: create_visual_components()
 
-        def __create_logout_components():
+        def __create_logout_components() -> Dict[str, Any]:
             """Widgets associated with logging in and out."""
 
             # Logout button in header
@@ -266,10 +269,10 @@ class GUI:
             "visual": __create_visual_components(),
         }
 
-    def __create_watchers(self):
+    def __create_watchers(self) -> None:
         """Function that defines widget dependencies."""
 
-        def __create_logout_watchers():
+        def __create_logout_watchers() -> None:
             """Defines dependencies and behaviors for widgets associated with logging in and out."""
 
             self.components["logout"]["logout_btn"].on_click(self.logout_btn_clk)
@@ -278,10 +281,10 @@ class GUI:
                 self.go_to_login_page
             )
 
-        def __create_add_expense_watchers():
+        def __create_add_expense_watchers() -> None:
             """Defines dependencies and behaviors for widgets under the "add" tab."""
 
-            def add_expense_btn_clk(event):
+            def add_expense_btn_clk(event) ->  None:
                 """Writes expense data fields to user memory.
                 Called when the add expense button is clicked."""
 
@@ -324,7 +327,7 @@ class GUI:
 
                 # TODO: Update tabulator
 
-            def create_new_tag(event):
+            def create_new_tag(event) -> None:
                 """Called when user enters a brand new tag in the create tag input box."""
 
                 if "reset" in self.components["data"]["add"]["create_new_tags"].tags:
@@ -356,7 +359,7 @@ class GUI:
                     )
                     self.components["data"]["add"]["create_new_tags"].value = ""
 
-            def add_new_tag_btn_clk(_event):
+            def add_new_tag_btn_clk(_event) -> None:
                 """Toggles between assigning tags and creating new ones."""
 
                 if "create" in self.components["data"]["add"]["add_tag_btn"].tags:
@@ -387,7 +390,7 @@ class GUI:
             )
             self.components["data"]["add"]["add_tag_btn"].on_click(add_new_tag_btn_clk)
 
-        def __create_manage_data_watchers():
+        def __create_manage_data_watchers() -> None:
             """Defines dependencies and behavior for widgets under the "manage" tab."""
 
             def save_data_btn_clk(_event):
@@ -407,14 +410,14 @@ class GUI:
         __create_add_expense_watchers()
         __create_manage_data_watchers()
 
-    def __create_layout(self):
+    def __create_layout(self) -> None:
         """Creates the GUI layout."""
 
-        def __create_data_layouts():
+        def __create_data_layouts() -> pn.Tabs():
             """Creates layout of data managing components."""
 
             # BEGIN: sidebar tab widget layouts
-            def __create_add_data_layout():
+            def __create_add_data_layout() -> pn.Column():
                 """Creates the layout of the "add expense" tab."""
                 self.add_data_layout = pn.Column(
                     self.components["data"]["add"]["amount"],
@@ -431,11 +434,11 @@ class GUI:
                 )
                 return self.add_data_layout
 
-            def __create_search_data_layout():
+            def __create_search_data_layout() -> pn.Column():
                 """Creates the layout of the "search" tab."""
                 return pn.Column(*self.components["data"]["search"].values())
 
-            def __create_manage_data_layout():
+            def __create_manage_data_layout() -> pn.Column():
                 """Creates the layout for the "manage" tab."""
                 return pn.Column(*self.components["data"]["manage"].values())
 
