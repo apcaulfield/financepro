@@ -213,8 +213,12 @@ class DataManager:
         self.current_user_config = self.boot_user_config
         self.current_user_config.launches += 1
 
-    def save_data(self):
+    def save_data(self) -> bool:
         """Handles saving user data to JSON files."""
+
+        #Check if there is any data to be saved
+        if self.new_user_data == UserData():
+            return False
 
         # Write combined_user_data to JSON data file
         with open(self.user_data_file, "wb") as file:
@@ -229,6 +233,8 @@ class DataManager:
         with open(self.user_config_file, "wb") as file:
             data = msgspec.json.encode(self.current_user_config)
             file.write(data)
+        
+        return True
 
     def revert_data(self):
         """Reverts data to last save point."""

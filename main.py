@@ -144,7 +144,7 @@ class GUI:
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 amounts = [
-                    expense.amount
+                    "$" + f"{expense.amount:.2f}"
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 categories = [
@@ -155,30 +155,22 @@ class GUI:
                     expense.tags if expense.tags else set()
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
-                date = [
+                date = (
                     (
-                        [
-                            expense.date_time.year,
-                            expense.date_time.month,
-                            expense.date_time.day,
-                        ]
+                        f"{expense.date_time.month}/{expense.date_time.day}/{expense.date_time.year}"
                         if expense.date_time
-                        else [None, None, None]
+                        else ""
                     )
                     for expense in self.data_manager.combined_user_data.expenses
-                ]
-                time = [
+                )
+                time = (
                     (
-                        [
-                            expense.date_time.hour,
-                            expense.date_time.minute,
-                            expense.date_time.second,
-                        ]
+                        f"{str(expense.date_time.hour).zfill(2)}:{str(expense.date_time.minute).zfill(2)}:{str(expense.date_time.second).zfill(2)}"
                         if expense.date_time
-                        else [None, None, None]
+                        else ""
                     )
                     for expense in self.data_manager.combined_user_data.expenses
-                ]
+                )
                 description = [
                     expense.description if expense.description else ""
                     for expense in self.data_manager.combined_user_data.expenses
@@ -323,11 +315,16 @@ class GUI:
         def __create_manage_data_watchers():
             """Defines dependencies and behavior for widgets under the "manage" tab."""
 
+            def save_data_btn_clk(_event):
+                
+                # Attempts to save data to JSON file if any new data exists
+                if self.data_manager.save_data():
+                    pn.state.notifications.success("Successfully saved new expenses to memory!")
+                else:
+                    pn.state.notifications.warning("No new data needs to be saved.")
+
             # Save data button
-            self.components["data"]["manage"]["save"].on_click(
-                lambda _event: self.data_manager.save_data()
-            )
-            pn.state.notifications.success("Successfully saved new expenses to memory!")
+            self.components["data"]["manage"]["save"].on_click(save_data_btn_clk)
 
         __create_logout_watchers()
         __create_add_expense_watchers()
