@@ -1,13 +1,12 @@
 """Creates GUI contents, layouts, and dependencies."""
 
 from typing import Dict, Any
-import datetime
 
 from bokeh.models.widgets.tables import NumberFormatter
 import pandas as pd
 import panel as pn
 
-from data_manager import DataManager, Expense
+from data_manager import DataManager, UserData
 
 # Turn on notifications
 pn.extension(notifications=True)
@@ -44,10 +43,8 @@ class GUI:
     def logout_btn_clk(self, _event):
         """Called when the "Logout" button is clicked."""
 
-        print(type(self.components["data"]["add"]["time"].value))
-
         # Check if user has unsaved expenses
-        if len(self.data_manager.new_user_data.expenses) > 0:
+        if self.data_manager.new_user_data != UserData():
             self.components["data"]["tabulator"].visible = False
             # Text of prompt is updated with number of unsaved expenses
             self.components["logout"][
@@ -70,6 +67,7 @@ class GUI:
                     placeholder="Required",
                     start=0.00,
                     step=1,
+                    format="$:.2f",
                 )
                 input_expense_name = pn.widgets.AutocompleteInput(
                     name="Name",
@@ -80,7 +78,22 @@ class GUI:
                 input_expense_category = pn.widgets.TextInput(
                     name="Category", placeholder="Required"
                 )
-                input_expense_tags = pn.widgets.MultiChoice(name="Tags")
+                input_expense_tags = pn.widgets.MultiChoice(
+                    name="Tags",
+                    options=list(self.data_manager.combined_user_data.tags),
+                    width=165,
+                )
+                new_tag_button = pn.widgets.Button(
+                    name="Create new tags",
+                    align="end",
+                    width=110,
+                    margin=(5, 10, 5, 0),
+                )
+                input_new_tags = pn.widgets.TextInput(
+                    name="Enter a new tag",
+                    width=165,
+                    height=66,
+                )
                 input_expense_date_time = pn.widgets.DatetimePicker(
                     name="Date/Time", enable_seconds=False, military_time=False
                 )
@@ -100,6 +113,8 @@ class GUI:
                     "name": input_expense_name,
                     "category": input_expense_category,
                     "tags": input_expense_tags,
+                    "add_tag_btn": new_tag_button,
+                    "create_new_tags": input_new_tags,
                     "time": input_expense_date_time,
                     "description": input_expense_description,
                     "notes": input_expense_notes,
@@ -152,7 +167,7 @@ class GUI:
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 tags = [
-                    expense.tags if expense.tags else set()
+                    expense.tags if expense.tags else []
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 date = (
@@ -309,17 +324,79 @@ class GUI:
 
                 # TODO: Update tabulator
 
-            # === Create watchers === #
+            def create_new_tag(event):
+                """Called when user enters a brand new tag in the create tag input box."""
+
+                if "reset" in self.components["data"]["add"]["create_new_tags"].tags:
+                    # Recursive call was made due to text box wipe
+                    self.components["data"]["add"]["create_new_tags"].tags.remove(
+                        "reset"
+                    )
+                    return
+
+                # Make sure tag doesn't exist already
+                if event.new not in self.data_manager.combined_user_data.tags:
+                    # Add tag to user data
+                    self.data_manager.new_user_data.tags.add(event.new)
+                    self.data_manager.combined_user_data.tags.add(event.new)
+                    self.components["data"]["add"]["tags"].options.append(event.new)
+                    pn.state.notifications.success(
+                        f"Successfully created tag {event.new}"
+                    )
+
+                    # Append reset tag to prevent function from being executed twice
+                    self.components["data"]["add"]["create_new_tags"].tags.append(
+                        "reset"
+                    )
+                    self.components["data"]["add"]["create_new_tags"].value = ""
+                else:
+                    pn.state.notifications.error("Tag already exists.")
+                    self.components["data"]["add"]["create_new_tags"].tags.append(
+                        "reset"
+                    )
+                    self.components["data"]["add"]["create_new_tags"].value = ""
+
+            def add_new_tag_btn_clk(_event):
+                """Toggles between assigning tags and creating new ones."""
+
+                if "create" in self.components["data"]["add"]["add_tag_btn"].tags:
+                    # Leaving create new tag mode
+                    self.components["data"]["add"][
+                        "add_tag_btn"
+                    ].name = "Create new tags"
+                    self.add_data_layout[3] = pn.Row(
+                        self.components["data"]["add"]["tags"],
+                        self.components["data"]["add"]["add_tag_btn"],
+                    )
+                    self.components["data"]["add"]["add_tag_btn"].tags.remove("create")
+                else:
+                    # Activate create new tag mode
+                    self.components["data"]["add"]["add_tag_btn"].name = "Assign tags"
+                    self.add_data_layout[3] = pn.Row(
+                        self.components["data"]["add"]["create_new_tags"],
+                        self.components["data"]["add"]["add_tag_btn"],
+                    )
+                    self.components["data"]["add"]["add_tag_btn"].tags.append("create")
+
+            # === Assign watchers === #
             self.components["data"]["add"]["button"].on_click(add_expense_btn_clk)
+
+            # Tags
+            self.components["data"]["add"]["create_new_tags"].param.watch(
+                create_new_tag, "value"
+            )
+            self.components["data"]["add"]["add_tag_btn"].on_click(add_new_tag_btn_clk)
 
         def __create_manage_data_watchers():
             """Defines dependencies and behavior for widgets under the "manage" tab."""
 
             def save_data_btn_clk(_event):
-                
+
                 # Attempts to save data to JSON file if any new data exists
                 if self.data_manager.save_data():
-                    pn.state.notifications.success("Successfully saved new expenses to memory!")
+                    pn.state.notifications.success(
+                        "Successfully saved new expenses to memory!"
+                    )
                 else:
                     pn.state.notifications.warning("No new data needs to be saved.")
 
@@ -339,7 +416,20 @@ class GUI:
             # BEGIN: sidebar tab widget layouts
             def __create_add_data_layout():
                 """Creates the layout of the "add expense" tab."""
-                return pn.Column(*self.components["data"]["add"].values())
+                self.add_data_layout = pn.Column(
+                    self.components["data"]["add"]["amount"],
+                    self.components["data"]["add"]["name"],
+                    self.components["data"]["add"]["category"],
+                    pn.Row(
+                        self.components["data"]["add"]["tags"],
+                        self.components["data"]["add"]["add_tag_btn"],
+                    ),
+                    self.components["data"]["add"]["time"],
+                    self.components["data"]["add"]["description"],
+                    self.components["data"]["add"]["notes"],
+                    self.components["data"]["add"]["button"],
+                )
+                return self.add_data_layout
 
             def __create_search_data_layout():
                 """Creates the layout of the "search" tab."""

@@ -4,7 +4,6 @@ import logging
 import re
 import datetime
 from pathlib import Path
-from typing import List
 
 import humanize
 import msgspec
@@ -18,7 +17,7 @@ class Expense(msgspec.Struct):
     amount: float
     name: str
     category: str
-    tags: set[str] | None = set()
+    tags: list[str] | None = list[str]
     date_time: datetime.datetime | None = None
     description: str | None = None
     notes: str | None = None
@@ -27,7 +26,7 @@ class Expense(msgspec.Struct):
 class UserData(msgspec.Struct):
     """Describes the structure of all user JSON data."""
 
-    expenses: List[Expense] = []
+    expenses: list[Expense] = []
     names: set[str] = set()
     categories: set[str] = set()
     tags: set[str] = set()
@@ -216,7 +215,7 @@ class DataManager:
     def save_data(self) -> bool:
         """Handles saving user data to JSON files."""
 
-        #Check if there is any data to be saved
+        # Check if there is any data to be saved
         if self.new_user_data == UserData():
             return False
 
@@ -233,7 +232,7 @@ class DataManager:
         with open(self.user_config_file, "wb") as file:
             data = msgspec.json.encode(self.current_user_config)
             file.write(data)
-        
+
         return True
 
     def revert_data(self):
