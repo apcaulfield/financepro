@@ -435,7 +435,7 @@ class GUI:
                 """
 
                 if not enabled or value == None:
-                    # No filter applied or Amount accordion card was closed
+                    # No filter applied or filter accordion card was closed
                     return df
                 else:
                     if option == "Above amount":
