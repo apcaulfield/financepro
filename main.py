@@ -1,12 +1,13 @@
 """Creates GUI contents, layouts, and dependencies."""
 
 from typing import Dict, Any
+from itertools import islice
 
-from bokeh.models.widgets.tables import NumberFormatter
+from bokeh.models.widgets.tables import NumberEditor
 import pandas as pd
 import panel as pn
 
-from data_manager import DataManager, UserData
+from data_manager import DataManager, UserData, Expense
 
 # Default height of the MultiChoice widget
 MULTICHOICE_HEIGHT = 66
@@ -57,19 +58,41 @@ class GUI:
             self.components["logout"]["text"].param.trigger("object")
             self.components["logout"]["prompt"].visible = True
 
+    def tabulator_amount_filter(self, filter_value, cell_value):
+        """Filters expenses by amount in the tabulator.
+
+        Parameters
+        ----------
+        filter_value
+            The filter value in the header of the column.
+        cell_value
+            the value of a given cell in the column.
+        """
+
+        # TODO: Under the manage data tab, add options for managing how the filters work (For example, should it filter expenses lesser or greater than the filter amount?)
+
+        try:
+            fval = float(filter_value)
+            return cell_value >= fval
+        except ValueError:
+            pn.state.notifications.error(
+                f"Could not convert {filter_value} to a numerical amount."
+            )
+            return False
+
     def __create_components(self) -> Dict[str, Any]:
         """Returns all components present in the GUI."""
 
         def __create_data_components() -> Dict[str, Any]:
             """Contains functions that create widgets associated with the add, search, and manage data tabs."""
 
-            def __create_add_expense() -> Dict[str, Any]:
-                """Widgets for adding a new expense."""
+            def __add_expense_components() -> Dict[str, Any]:
+                """Returns widgets for adding a new expense."""
                 input_expense_amount = pn.widgets.FloatInput(
                     name="Amount",
                     placeholder="Required",
                     start=0.00,
-                    step=1,
+                    step=0.01,
                     format="$:.2f",
                 )
                 input_expense_name = pn.widgets.AutocompleteInput(
@@ -124,27 +147,46 @@ class GUI:
                     "button": btn_add_expense,
                 }
 
-            def __create_search_expense() -> Dict[str, Any]:
-                """Widgets for deleting an expense."""
+            def __search_components() -> Dict[str, Any]:
+                """Returns widgets for deleting an expense."""
 
                 options = ["Name", "Category", "Tag(s)", "Location", "Description"]
-                delete_search_options = pn.widgets.CheckBoxGroup(
+                search_options = pn.widgets.CheckBoxGroup(
                     options=options, value=options
                 )
-                input_delete_keyword = pn.widgets.TextInput(
-                    placeholder="Enter keyword..."
-                )
+                input_keyword = pn.widgets.TextInput(placeholder="Enter keyword...")
                 input_date_time_range = pn.widgets.DatetimeRangePicker(
                     name="Date/Time", enable_seconds=False, military_time=False
                 )
 
+                # == TABULATOR FILTER WIDGETS == #
+                # This widget is used to change the tabulator amount filter to above or below.
+                amount_filter_changer = pn.widgets.RadioBoxGroup(
+                    name="Filter:", options=["Above amount", "Below amount"]
+                )
+                # This widget is used to set a threshold on the amount column in the tabulator.
+                amount_filter_input = pn.widgets.FloatInput(
+                    name="Amount Threshold", start=0, step=0.01, format="$:.2f"
+                )
+
+                # Filter accordion
+                filter_title = pn.pane.Markdown("""# Filters""")
+                filter_accordion = pn.Accordion(
+                    ("Amount", pn.Column(amount_filter_changer, amount_filter_input)),
+                    width=330,
+                )
+
                 return {
-                    "options": delete_search_options,
-                    "keyword": input_delete_keyword,
+                    "options": search_options,
+                    "keyword": input_keyword,
                     "time": input_date_time_range,
+                    "amount_filter_changer": amount_filter_changer,
+                    "amount_filter_input": amount_filter_input,
+                    "filter_text": filter_title,
+                    "accordion": filter_accordion,
                 }
 
-            def __create_manage_data() -> Dict[str, Any]:
+            def __manage_data_components() -> Dict[str, Any]:
                 """Widgets for managing data."""
 
                 save_btn = pn.widgets.Button(name="Save newly added data")
@@ -154,15 +196,13 @@ class GUI:
             def __create_tabulator() -> pn.widgets.Tabulator:
                 """Widgets associated with the tabulator."""
 
-                tabulator_formats = {"float": NumberFormatter(format="$0.00")}
-
                 # Extracts all data fields, handles empty fields appropriately
                 names = [
                     expense.name
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 amounts = [
-                    "$" + f"{expense.amount:.2f}"
+                    expense.amount
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
                 categories = [
@@ -198,6 +238,9 @@ class GUI:
                     for expense in self.data_manager.combined_user_data.expenses
                 ]
 
+                # Formatting of values within cells
+                data_formatters = {"Amount": {"type": "money"}}
+
                 df = pd.DataFrame(
                     {
                         "Name": names,
@@ -212,31 +255,37 @@ class GUI:
                 )
                 tabulator = pn.widgets.Tabulator(
                     df,
-                    formatters=tabulator_formats,
                     theme="bootstrap",
                     layout="fit_data",
+                    formatters=data_formatters,
                 )
 
-                return tabulator
+                return {"tabulator": tabulator, "df": df}
+
+            # Create tabulator components
+            tabulator_components = __create_tabulator()
+            tabulator = tabulator_components["tabulator"]
+            df = tabulator_components["df"]
 
             return {
-                "add": __create_add_expense(),
-                "search": __create_search_expense(),
-                "manage": __create_manage_data(),
-                "tabulator": __create_tabulator(),
+                "add": __add_expense_components(),
+                "search": __search_components(),
+                "manage": __manage_data_components(),
+                "tabulator": tabulator,
+                "df": df,
             }
 
-        # END: create_data_components()
+        # END: create data component functions
 
         # BEGIN: create_visual_components()
-        def __create_visual_components():
-            """Contains functions that create components associated with visualizing data."""
+        def __visual_components():
+            """Returns components associated with visualizing data."""
             return None
 
         # END: create_visual_components()
 
-        def __create_logout_components() -> Dict[str, Any]:
-            """Widgets associated with logging in and out."""
+        def __logout_components() -> Dict[str, Any]:
+            """Returns components associated with logging in and out."""
 
             # Logout button in header
             logout_btn = pn.widgets.Button(name="Logout")
@@ -264,16 +313,16 @@ class GUI:
             }
 
         return {
-            "logout": __create_logout_components(),
+            "logout": __logout_components(),
             "data": __create_data_components(),
-            "visual": __create_visual_components(),
+            "visual": __visual_components(),
         }
 
     def __create_watchers(self) -> None:
         """Function that defines widget dependencies."""
 
-        def __create_logout_watchers() -> None:
-            """Defines dependencies and behaviors for widgets associated with logging in and out."""
+        def __logout_watchers() -> None:
+            """Defines behaviors for components associated with logging in and out."""
 
             self.components["logout"]["logout_btn"].on_click(self.logout_btn_clk)
             self.components["logout"]["save_data"].on_click(self.go_to_login_page)
@@ -281,10 +330,10 @@ class GUI:
                 self.go_to_login_page
             )
 
-        def __create_add_expense_watchers() -> None:
-            """Defines dependencies and behaviors for widgets under the "add" tab."""
+        def __add_expense_watchers() -> None:
+            """Defines behaviors for components under the data -> add tab."""
 
-            def add_expense_btn_clk(event) ->  None:
+            def add_expense_btn_clk(event) -> None:
                 """Writes expense data fields to user memory.
                 Called when the add expense button is clicked."""
 
@@ -378,7 +427,7 @@ class GUI:
                     self.add_data_layout[3] = pn.Row(
                         self.components["data"]["add"]["create_new_tags"],
                         self.components["data"]["add"]["add_tag_btn"],
-                    )
+                    )  # Swaps widgets
                     self.components["data"]["add"]["add_tag_btn"].tags.append("create")
 
             # === Assign watchers === #
@@ -390,8 +439,42 @@ class GUI:
             )
             self.components["data"]["add"]["add_tag_btn"].on_click(add_new_tag_btn_clk)
 
-        def __create_manage_data_watchers() -> None:
-            """Defines dependencies and behavior for widgets under the "manage" tab."""
+        def __search_watchers() -> None:
+            """Defines behavior for components under the data -> search tab."""
+
+            def update_amount_filter(df, value, option, enabled=False):
+                """Updates filter for amount column in tabulator.
+
+                Parameters
+                ----------
+                df
+                    Dataframe containing all user expenses.
+                value
+                    value of the amount filter threshold widget.
+                option
+                    value of the amount filter changer widget (indicates above or below threshold).
+                """
+
+                if value == None:
+                    # No filter applied
+                    return df
+                else:
+                    if option == "Above amount":
+                        return df[df["Amount"] >= value]
+                    elif option == "Below amount":
+                        return df[df["Amount"] <= value]
+
+            amount_filter = pn.bind(
+                update_amount_filter,
+                value=self.components["data"]["search"]["amount_filter_input"],
+                option=self.components["data"]["search"]["amount_filter_changer"],
+            )
+            self.components["data"]["tabulator"].add_filter(
+                filter=amount_filter, column="Amount"
+            )
+
+        def __manage_data_watchers() -> None:
+            """Defines behavior for components under the data -> manage tab."""
 
             def save_data_btn_clk(_event):
 
@@ -406,18 +489,19 @@ class GUI:
             # Save data button
             self.components["data"]["manage"]["save"].on_click(save_data_btn_clk)
 
-        __create_logout_watchers()
-        __create_add_expense_watchers()
-        __create_manage_data_watchers()
+        __logout_watchers()
+        __add_expense_watchers()
+        __search_watchers()
+        __manage_data_watchers()
 
     def __create_layout(self) -> None:
         """Creates the GUI layout."""
 
-        def __create_data_layouts() -> pn.Tabs():
+        def __data_layouts() -> pn.Tabs():
             """Creates layout of data managing components."""
 
             # BEGIN: sidebar tab widget layouts
-            def __create_add_data_layout() -> pn.Column():
+            def __add_data_layout() -> pn.Column():
                 """Creates the layout of the "add expense" tab."""
                 self.add_data_layout = pn.Column(
                     self.components["data"]["add"]["amount"],
@@ -434,41 +518,50 @@ class GUI:
                 )
                 return self.add_data_layout
 
-            def __create_search_data_layout() -> pn.Column():
+            def __search_layout() -> pn.Column():
                 """Creates the layout of the "search" tab."""
-                return pn.Column(*self.components["data"]["search"].values())
 
-            def __create_manage_data_layout() -> pn.Column():
+                # Retrieves first 3 search widgets that are excluded from accordion
+                general_options = list(
+                    islice(self.components["data"]["search"].values(), 3)
+                )
+                return pn.Column(
+                    *general_options,
+                    self.components["data"]["search"]["filter_text"],
+                    self.components["data"]["search"]["accordion"],
+                )
+
+            def __manage_layout() -> pn.Column():
                 """Creates the layout for the "manage" tab."""
                 return pn.Column(*self.components["data"]["manage"].values())
 
             # END: sidebar tab widget layouts
 
             return pn.Tabs(
-                ("Add", __create_add_data_layout()),
-                ("Search", __create_search_data_layout()),
-                ("Manage", __create_manage_data_layout()),
+                ("Add", __add_data_layout()),
+                ("Search", __search_layout()),
+                ("Manage", __manage_layout()),
             )
 
         # Header
         self.template.header.append(self.components["logout"]["logout_btn"])
 
         # Sidebar
-        sidebar_tabs = pn.Tabs(("Data", __create_data_layouts()), ("View", None))
+        sidebar_tabs = pn.Tabs(("Data", __data_layouts()), ("View", None))
         self.template.sidebar.append(sidebar_tabs)
 
         # Main
         self.template.main.append(self.components["data"]["tabulator"])
         self.template.main.append(self.components["logout"]["prompt"])
 
-    def serve_layout(self):
+    def get_layout(self):
         """Function that is accessed by pn.serve()."""
         return self.template
 
 
 def main():
     my_gui = GUI()
-    pn.serve(my_gui.serve_layout)
+    pn.serve(my_gui.get_layout)
 
 
 if __name__ == "__main__":
