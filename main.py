@@ -58,28 +58,6 @@ class GUI:
             self.components["logout"]["text"].param.trigger("object")
             self.components["logout"]["prompt"].visible = True
 
-    def tabulator_amount_filter(self, filter_value, cell_value):
-        """Filters expenses by amount in the tabulator.
-
-        Parameters
-        ----------
-        filter_value
-            The filter value in the header of the column.
-        cell_value
-            the value of a given cell in the column.
-        """
-
-        # TODO: Under the manage data tab, add options for managing how the filters work (For example, should it filter expenses lesser or greater than the filter amount?)
-
-        try:
-            fval = float(filter_value)
-            return cell_value >= fval
-        except ValueError:
-            pn.state.notifications.error(
-                f"Could not convert {filter_value} to a numerical amount."
-            )
-            return False
-
     def __create_components(self) -> Dict[str, Any]:
         """Returns all components present in the GUI."""
 
