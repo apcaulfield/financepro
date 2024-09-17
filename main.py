@@ -420,7 +420,8 @@ class GUI:
         def __search_watchers() -> None:
             """Defines behavior for components under the data -> search tab."""
 
-            def update_amount_filter(df, value, option, enabled=False):
+            # BEGIN: search filters
+            def update_amount_filter(df, value, option, enabled):
                 """Updates filter for amount column in tabulator.
 
                 Parameters
@@ -433,8 +434,8 @@ class GUI:
                     value of the amount filter changer widget (indicates above or below threshold).
                 """
 
-                if value == None:
-                    # No filter applied
+                if not enabled or value == None:
+                    # No filter applied or Amount accordion card was closed
                     return df
                 else:
                     if option == "Above amount":
@@ -446,10 +447,13 @@ class GUI:
                 update_amount_filter,
                 value=self.components["data"]["search"]["amount_filter_input"],
                 option=self.components["data"]["search"]["amount_filter_changer"],
+                enabled=self.components["data"]["search"]["accordion"].param.active,
             )
             self.components["data"]["tabulator"].add_filter(
                 filter=amount_filter, column="Amount"
             )
+
+        # END: search filters
 
         def __manage_data_watchers() -> None:
             """Defines behavior for components under the data -> manage tab."""
