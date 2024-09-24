@@ -126,7 +126,7 @@ class GUI:
                 }
 
             def __search_components() -> Dict[str, Any]:
-                """Returns widgets for deleting an expense."""
+                """Returns widgets for filtering expenses."""
 
                 options = ["Name", "Category", "Tag(s)", "Location", "Description"]
                 search_options = pn.widgets.CheckBoxGroup(
@@ -147,21 +147,16 @@ class GUI:
                     name="Amount Threshold", start=0, step=0.01, format="$:.2f"
                 )
 
-                # Filter accordion
-                filter_title = pn.pane.Markdown("""# Filters""")
-                filter_accordion = pn.Accordion(
-                    ("Amount", pn.Column(amount_filter_changer, amount_filter_input)),
-                    width=330,
-                )
+                # Amount filter
+                filter_title = pn.pane.Markdown("""# Amount Filter""")
 
                 return {
                     "options": search_options,
                     "keyword": input_keyword,
                     "time": input_date_time_range,
+                    "filter_text": filter_title,
                     "amount_filter_changer": amount_filter_changer,
                     "amount_filter_input": amount_filter_input,
-                    "filter_text": filter_title,
-                    "accordion": filter_accordion,
                 }
 
             def __manage_data_components() -> Dict[str, Any]:
@@ -421,7 +416,7 @@ class GUI:
             """Defines behavior for components under the data -> search tab."""
 
             # BEGIN: search filters
-            def update_amount_filter(df, value, option, enabled):
+            def update_amount_filter(df, value, option, enabled=True):
                 """Updates filter for amount column in tabulator.
 
                 Parameters
@@ -435,7 +430,7 @@ class GUI:
                 """
 
                 if not enabled or value == None:
-                    # No filter applied or filter accordion card was closed
+                    # No filter applied or disabled
                     return df
                 else:
                     if option == "Above amount":
@@ -447,7 +442,6 @@ class GUI:
                 update_amount_filter,
                 value=self.components["data"]["search"]["amount_filter_input"],
                 option=self.components["data"]["search"]["amount_filter_changer"],
-                enabled=self.components["data"]["search"]["accordion"].param.active,
             )
             self.components["data"]["tabulator"].add_filter(
                 filter=amount_filter, column="Amount"
@@ -503,15 +497,7 @@ class GUI:
             def __search_layout() -> pn.Column():
                 """Creates the layout of the "search" tab."""
 
-                # Retrieves first 3 search widgets that are excluded from accordion
-                general_options = list(
-                    islice(self.components["data"]["search"].values(), 3)
-                )
-                return pn.Column(
-                    *general_options,
-                    self.components["data"]["search"]["filter_text"],
-                    self.components["data"]["search"]["accordion"],
-                )
+                return pn.Column(*self.components["data"]["search"].values())
 
             def __manage_layout() -> pn.Column():
                 """Creates the layout for the "manage" tab."""
