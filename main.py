@@ -128,7 +128,7 @@ class GUI:
             def __search_components() -> Dict[str, Any]:
                 """Returns widgets for filtering expenses."""
 
-                options = ["Name", "Category", "Tag(s)", "Location", "Description"]
+                options = ["Name", "Category", "Tags", "Description"]
                 search_options = pn.widgets.CheckBoxGroup(
                     options=options, value=options
                 )
@@ -151,12 +151,12 @@ class GUI:
                 filter_title = pn.pane.Markdown("""# Amount Filter""")
 
                 return {
-                    "options": search_options,
-                    "keyword": input_keyword,
-                    "time": input_date_time_range,
-                    "filter_text": filter_title,
+                    "keyword_filter_input": input_keyword,
+                    "keyword_filter_options": search_options,
+                    "amount_filter_text": filter_title,
                     "amount_filter_changer": amount_filter_changer,
                     "amount_filter_input": amount_filter_input,
+                    "time_filter": input_date_time_range,
                 }
 
             def __manage_data_components() -> Dict[str, Any]:
@@ -415,6 +415,32 @@ class GUI:
         def __search_watchers() -> None:
             """Defines behavior for components under the data -> search tab."""
 
+            def update_keyword_filter(df, keyword, options):
+                """Handles new keywords being added to the keyword search filter.
+
+                Parameters
+                ----------
+                df
+                    Dataframe containing all user expenses.
+                keyword
+                    value of the keyword filter input widget.
+                options
+                    value of the search options widget.
+                entry
+                    corresponds to a row entry for a particular column.
+
+                """
+
+                return df[
+                    df[options].apply(  # applies filter to columns specified by options
+                        lambda row: any(  # stops searching through addtional values in the row when a match is found
+                            keyword.lower() in str(entry).lower()
+                            for entry in row.values  # loops through all entries in the row
+                        ),
+                        axis=1,
+                    )
+                ]
+
             # BEGIN: search filters
             def update_amount_filter(df, value, option, enabled=True):
                 """Updates filter for amount column in tabulator.
@@ -427,6 +453,7 @@ class GUI:
                     value of the amount filter threshold widget.
                 option
                     value of the amount filter changer widget (indicates above or below threshold).
+
                 """
 
                 if not enabled or value == None:
@@ -438,14 +465,21 @@ class GUI:
                     elif option == "Below amount":
                         return df[df["Amount"] <= value]
 
+            ## Create tabulator filters with pn.bind
+            keyword_filter = pn.bind(
+                update_keyword_filter,
+                keyword=self.components["data"]["search"]["keyword_filter_input"],
+                options=self.components["data"]["search"]["keyword_filter_options"],
+            )
+
             amount_filter = pn.bind(
                 update_amount_filter,
                 value=self.components["data"]["search"]["amount_filter_input"],
                 option=self.components["data"]["search"]["amount_filter_changer"],
             )
-            self.components["data"]["tabulator"].add_filter(
-                filter=amount_filter, column="Amount"
-            )
+
+            self.components["data"]["tabulator"].add_filter(keyword_filter)
+            self.components["data"]["tabulator"].add_filter(amount_filter)
 
         # END: search filters
 
