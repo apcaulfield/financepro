@@ -28,7 +28,13 @@ class GUI:
         self.__create_watchers()
         self.__create_layout()
 
+    def unsaved_expenses(self):
+        """Handles warning the user of unsaved expenses."""
+        pass
+
     def update_dataframe(self, new_expenses: list[Expense], bootup=False):
+        """Updates the dataframe and tabulator components."""
+
         # Extracts all data fields, handles empty fields appropriately
         names = [expense.name for expense in new_expenses]
         amounts = [expense.amount for expense in new_expenses]
@@ -69,7 +75,7 @@ class GUI:
             }
         )
 
-        # Function is being access from initial bootup of GUI
+        # Function is being accessed from initial bootup of GUI
         if bootup == True:
             # Formatting of values within cells
             data_formatters = {"Amount": {"type": "money"}}
@@ -143,6 +149,9 @@ class GUI:
                     name="Notes", placeholder="Optional", height=100, resizable="height"
                 )
                 btn_add_expense = pn.widgets.Button(name="Add Expense")
+                save_to_memory = pn.widgets.Checkbox(
+                    name="Save Expense to Memory", value=True, align="center"
+                )
 
                 return {
                     "amount": input_expense_amount,
@@ -155,6 +164,7 @@ class GUI:
                     "description": input_expense_description,
                     "notes": input_expense_notes,
                     "button": btn_add_expense,
+                    "save_to_memory": save_to_memory,
                 }
 
             def __search_components() -> Dict[str, Any]:
@@ -194,7 +204,7 @@ class GUI:
             def __manage_data_components() -> Dict[str, Any]:
                 """Widgets for managing data."""
 
-                save_btn = pn.widgets.Button(name="Save newly added data")
+                save_btn = pn.widgets.Button(name="Save Newly Added Data")
 
                 return {"save": save_btn}
 
@@ -307,6 +317,8 @@ class GUI:
                 Called when the add expense button is clicked."""
 
                 # Check for required fields
+                # TODO: Not sure if this checks for empty fields properly
+                # and more checks need to be added to ensure non-corrupt data.
                 missing_fields = []
                 if self.components["data"]["add"]["amount"].value in [0, None]:
                     missing_fields.append("Amount")
@@ -332,8 +344,15 @@ class GUI:
                     notes=self.components["data"]["add"]["notes"].value,
                 )
 
-                # Add expense to user memory
+                # Save expense to local user memory
                 self.data_manager.add_expense(expense_data)
+
+                # Save expense to permanent user memory (if enabled)
+                if self.components["data"]["add"]["save_to_memory"].value == True:
+                    # TODO: self.data_manager.save_data() will save all previous unsaved expenses as well
+                    if len(self.data_manager.new_user_data.expenses) > 1:
+                        self.unsaved_expenses()
+                    self.data_manager.save_data()
                 pn.state.notifications.success("Successfully added expense!")
 
                 # Update dataframe and tabulator to reflect new data
@@ -524,7 +543,10 @@ class GUI:
                     self.components["data"]["add"]["time"],
                     self.components["data"]["add"]["description"],
                     self.components["data"]["add"]["notes"],
-                    self.components["data"]["add"]["button"],
+                    pn.Row(
+                        self.components["data"]["add"]["button"],
+                        self.components["data"]["add"]["save_to_memory"],
+                    ),
                 )
                 return self.add_data_layout
 
