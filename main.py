@@ -28,7 +28,7 @@ class GUI:
         self.__create_watchers()
         self.__create_layout()
 
-    def update_dataframe(self, new_expenses: list[Expense]) -> None:
+    def update_dataframe(self, new_expenses: list[Expense], bootup=False):
         # Extracts all data fields, handles empty fields appropriately
         names = [expense.name for expense in new_expenses]
         amounts = [expense.amount for expense in new_expenses]
@@ -68,6 +68,19 @@ class GUI:
                 "Notes": notes,
             }
         )
+
+        # Function is being access from initial bootup of GUI
+        if bootup == True:
+            # Formatting of values within cells
+            data_formatters = {"Amount": {"type": "money"}}
+            tabulator = pn.widgets.Tabulator(
+                new_rows,
+                theme="bootstrap",
+                layout="fit_data",
+                formatters=data_formatters,
+            )
+
+            return {"df": new_rows, "tabulator": tabulator}
 
         # Combine new dataframe data with existing
         self.components["data"]["df"] = pd.concat(
@@ -186,73 +199,12 @@ class GUI:
                 return {"save": save_btn}
 
             def __create_tabulator() -> pn.widgets.Tabulator:
-                """Widgets associated with the tabulator."""
+                """Initializes dataframe and tabulator at bootup."""
 
-                # Extracts all data fields, handles empty fields appropriately
-                names = [
-                    expense.name
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-                amounts = [
-                    expense.amount
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-                categories = [
-                    expense.category
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-                tags = [
-                    expense.tags if expense.tags else []
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-                date = (
-                    (
-                        f"{expense.date_time.month}/{expense.date_time.day}/{expense.date_time.year}"
-                        if expense.date_time
-                        else ""
-                    )
-                    for expense in self.data_manager.combined_user_data.expenses
+                return self.update_dataframe(
+                    self.data_manager.combined_user_data.expenses,
+                    bootup=True,
                 )
-                time = (
-                    (
-                        f"{str(expense.date_time.hour).zfill(2)}:{str(expense.date_time.minute).zfill(2)}:{str(expense.date_time.second).zfill(2)}"
-                        if expense.date_time
-                        else ""
-                    )
-                    for expense in self.data_manager.combined_user_data.expenses
-                )
-                description = [
-                    expense.description if expense.description else ""
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-                notes = [
-                    expense.notes if expense.notes else ""
-                    for expense in self.data_manager.combined_user_data.expenses
-                ]
-
-                # Formatting of values within cells
-                data_formatters = {"Amount": {"type": "money"}}
-
-                df = pd.DataFrame(
-                    {
-                        "Name": names,
-                        "Amount": amounts,
-                        "Category": categories,
-                        "Tags": tags,
-                        "Date": date,
-                        "Time": time,
-                        "Description": description,
-                        "Notes": notes,
-                    }
-                )
-                tabulator = pn.widgets.Tabulator(
-                    df,
-                    theme="bootstrap",
-                    layout="fit_data",
-                    formatters=data_formatters,
-                )
-
-                return {"tabulator": tabulator, "df": df}
 
             # Create tabulator components
             tabulator_components = __create_tabulator()
