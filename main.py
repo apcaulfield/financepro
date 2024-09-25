@@ -1,9 +1,6 @@
 """Creates GUI contents, layouts, and dependencies."""
 
 from typing import Dict, Any
-from itertools import islice
-
-from bokeh.models.widgets.tables import NumberEditor
 import pandas as pd
 import panel as pn
 
@@ -31,32 +28,53 @@ class GUI:
         self.__create_watchers()
         self.__create_layout()
 
-    def go_to_login_page(self, event) -> None:
-        """Called when returning to the login page."""
+    def update_dataframe(self, new_expenses: list[Expense]) -> None:
+        # Extracts all data fields, handles empty fields appropriately
+        names = [expense.name for expense in new_expenses]
+        amounts = [expense.amount for expense in new_expenses]
+        categories = [expense.category for expense in new_expenses]
+        tags = [expense.tags if expense.tags else [] for expense in new_expenses]
+        date = (
+            (
+                f"{expense.date_time.month}/{expense.date_time.day}/{expense.date_time.year}"
+                if expense.date_time
+                else ""
+            )
+            for expense in new_expenses
+        )
+        time = (
+            (
+                f"{str(expense.date_time.hour).zfill(2)}:{str(expense.date_time.minute).zfill(2)}:{str(expense.date_time.second).zfill(2)}"
+                if expense.date_time
+                else ""
+            )
+            for expense in new_expenses
+        )
+        description = [
+            expense.description if expense.description else ""
+            for expense in new_expenses
+        ]
+        notes = [expense.notes if expense.notes else "" for expense in new_expenses]
 
-        # Actions to be taken if unsaved data was present
-        if event.obj.name == "Yes":
-            # User chose to save data
-            self.data_manager.save_data()
-        elif event.obj.name == "No":
-            # User chose not to save data
-            self.data_manager.revert_data()
+        new_rows = pd.DataFrame(
+            {
+                "Name": names,
+                "Amount": amounts,
+                "Category": categories,
+                "Tags": tags,
+                "Date": date,
+                "Time": time,
+                "Description": description,
+                "Notes": notes,
+            }
+        )
 
-        self.components["logout"]["prompt"].visible = False
-
-    def logout_btn_clk(self, _event) -> None:
-        """Called when the "Logout" button is clicked."""
-
-        # Check if user has unsaved data
-        if self.data_manager.new_user_data != UserData():
-            self.components["data"]["tabulator"].visible = False
-            # Text of prompt is updated with number of unsaved expenses
-            self.components["logout"][
-                "text"
-            ].object = f"""## You have {len(self.data_manager.new_user_data.expenses)} unsaved expenses. Would you like to keep them?"""
-            # Forces re-render
-            self.components["logout"]["text"].param.trigger("object")
-            self.components["logout"]["prompt"].visible = True
+        # Combine new dataframe data with existing
+        self.components["data"]["df"] = pd.concat(
+            [self.components["data"]["df"], new_rows], ignore_index=True
+        )
+        # Reflect changes to user
+        self.components["data"]["tabulator"].value = self.components["data"]["df"]
 
     def __create_components(self) -> Dict[str, Any]:
         """Returns all components present in the GUI."""
@@ -94,7 +112,8 @@ class GUI:
                     margin=(5, 10, 5, 0),
                 )
                 input_new_tags = pn.widgets.TextInput(
-                    name="Enter a new tag",
+                    name="Create tag",
+                    placeholder="Enter a new tag...",
                     width=165,
                     height=MULTICHOICE_HEIGHT,
                 )
@@ -297,11 +316,36 @@ class GUI:
         def __logout_watchers() -> None:
             """Defines behaviors for components associated with logging in and out."""
 
-            self.components["logout"]["logout_btn"].on_click(self.logout_btn_clk)
-            self.components["logout"]["save_data"].on_click(self.go_to_login_page)
-            self.components["logout"]["do_not_save_data"].on_click(
-                self.go_to_login_page
-            )
+            def go_to_login_page(event) -> None:
+                """Called when returning to the login page."""
+
+                # Actions to be taken if unsaved data was present
+                if event.obj.name == "Yes":
+                    # User chose to save data
+                    self.data_manager.save_data()
+                elif event.obj.name == "No":
+                    # User chose not to save data
+                    self.data_manager.revert_data()
+
+                self.components["logout"]["prompt"].visible = False
+
+            def logout_btn_clk(_event) -> None:
+                """Called when the "Logout" button is clicked."""
+
+                # Check if user has unsaved data
+                if self.data_manager.new_user_data != UserData():
+                    self.components["data"]["tabulator"].visible = False
+                    # Text of prompt is updated with number of unsaved expenses
+                    self.components["logout"][
+                        "text"
+                    ].object = f"""## You have {len(self.data_manager.new_user_data.expenses)} unsaved expenses. Would you like to keep them?"""
+                    # Forces re-render
+                    self.components["logout"]["text"].param.trigger("object")
+                    self.components["logout"]["prompt"].visible = True
+
+            self.components["logout"]["logout_btn"].on_click(logout_btn_clk)
+            self.components["logout"]["save_data"].on_click(go_to_login_page)
+            self.components["logout"]["do_not_save_data"].on_click(go_to_login_page)
 
         def __add_expense_watchers() -> None:
             """Defines behaviors for components under the data -> add tab."""
@@ -338,6 +382,10 @@ class GUI:
 
                 # Add expense to user memory
                 self.data_manager.add_expense(expense_data)
+                pn.state.notifications.success("Successfully added expense!")
+
+                # Update dataframe and tabulator to reflect new data
+                self.update_dataframe([expense_data])
 
                 self.components["data"]["add"]["amount"].value = 0
                 self.components["data"]["add"]["name"].value = ""
@@ -366,7 +414,7 @@ class GUI:
                     self.data_manager.combined_user_data.tags.add(event.new)
                     self.components["data"]["add"]["tags"].options.append(event.new)
                     pn.state.notifications.success(
-                        f"Successfully created tag {event.new}"
+                        f"Successfully created tag:\n {event.new}"
                     )
 
                     # Append reset tag to prevent function from being executed twice
