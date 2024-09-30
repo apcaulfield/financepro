@@ -9,12 +9,11 @@ from data_manager import DataManager, UserData, Expense
 # Default height of the MultiChoice widget
 MULTICHOICE_HEIGHT = 66
 
-# Turn on notifications
-pn.extension(notifications=True)
-
 # Load CSS formatting file
 with open("CSS/gui_bootstrap.css") as f:
     pn.config.raw_css.append(f.read())
+
+pn.extension(notifications=True)
 
 
 class GUI:
@@ -82,7 +81,6 @@ class GUI:
             tabulator = pn.widgets.Tabulator(
                 new_rows,
                 theme="bootstrap",
-                layout="fit_data",
                 formatters=data_formatters,
             )
 
@@ -103,25 +101,26 @@ class GUI:
 
             def __add_expense_components() -> Dict[str, Any]:
                 """Returns widgets for adding a new expense."""
-                input_expense_amount = pn.widgets.FloatInput(
+                input_amount = pn.widgets.FloatInput(
                     name="Amount",
                     placeholder="Required",
                     start=0.00,
                     step=0.01,
                     format="$:.2f",
                 )
-                input_expense_name = pn.widgets.AutocompleteInput(
+                input_name = pn.widgets.AutocompleteInput(
                     name="Name",
                     case_sensitive=False,
                     restrict=False,
                     placeholder="Required",
                 )
-                input_expense_category = pn.widgets.TextInput(
+                input_category = pn.widgets.TextInput(
                     name="Category", placeholder="Required"
                 )
-                input_expense_tags = pn.widgets.MultiChoice(
+                input_tags = pn.widgets.MultiChoice(
                     name="Tags",
                     options=list(self.data_manager.combined_user_data.tags),
+                    placeholder="Assign tags...",
                     width=165,
                 )
                 new_tag_button = pn.widgets.Button(
@@ -154,10 +153,10 @@ class GUI:
                 )
 
                 return {
-                    "amount": input_expense_amount,
-                    "name": input_expense_name,
-                    "category": input_expense_category,
-                    "tags": input_expense_tags,
+                    "amount": input_amount,
+                    "name": input_name,
+                    "category": input_category,
+                    "tags": input_tags,
                     "add_tag_btn": new_tag_button,
                     "create_new_tags": input_new_tags,
                     "time": input_expense_date_time,
@@ -170,6 +169,9 @@ class GUI:
             def __search_components() -> Dict[str, Any]:
                 """Returns widgets for filtering expenses."""
 
+                keyword_filter_title = pn.pane.Markdown("""# Keyword Filter""")
+                keyword_filter_enabler = pn.widgets.Checkbox(align="center")
+
                 options = ["Name", "Category", "Tags", "Description"]
                 search_options = pn.widgets.CheckBoxGroup(
                     options=options, value=options
@@ -179,24 +181,26 @@ class GUI:
                     name="Date/Time", enable_seconds=False, military_time=False
                 )
 
-                # == TABULATOR FILTER WIDGETS == #
-                # This widget is used to change the tabulator amount filter to above or below.
+                amount_filter_title = pn.pane.Markdown("""# Amount Filter""")
+                amount_filter_enabler = pn.widgets.Checkbox(align="center")
+
+                # Changes the tabulator amount filter to above or below
                 amount_filter_changer = pn.widgets.RadioBoxGroup(
                     name="Filter:", options=["Above amount", "Below amount"]
                 )
-                # This widget is used to set a threshold on the amount column in the tabulator.
+                # Input for the amount filter
                 amount_filter_input = pn.widgets.FloatInput(
                     name="Amount Threshold", start=0, step=0.01, format="$:.2f"
                 )
 
-                # Amount filter
-                filter_title = pn.pane.Markdown("""# Amount Filter""")
-
                 return {
+                    "keyword_filter_text": keyword_filter_title,
+                    "keyword_filter_enabler": keyword_filter_enabler,
                     "keyword_filter_input": input_keyword,
                     "keyword_filter_options": search_options,
-                    "amount_filter_text": filter_title,
-                    "amount_filter_changer": amount_filter_changer,
+                    "amount_filter_text": amount_filter_title,
+                    "amount_filter_enabler": amount_filter_enabler,
+                    "amount_filter_options": amount_filter_changer,
                     "amount_filter_input": amount_filter_input,
                     "time_filter": input_date_time_range,
                 }
@@ -204,7 +208,9 @@ class GUI:
             def __manage_data_components() -> Dict[str, Any]:
                 """Widgets for managing data."""
 
-                save_btn = pn.widgets.Button(name="Save Newly Added Data")
+                save_btn = pn.widgets.Button(
+                    name="Save Newly Added Data", width=310, align="center"
+                )
 
                 return {"save": save_btn}
 
@@ -434,7 +440,7 @@ class GUI:
         def __search_watchers() -> None:
             """Defines behavior for components under the data -> search tab."""
 
-            def update_keyword_filter(df, keyword, options):
+            def update_keyword_filter(df, keyword, options, enabled):
                 """Handles new keywords being added to the keyword search filter.
 
                 Parameters
@@ -449,6 +455,9 @@ class GUI:
                     corresponds to a row entry for a particular column.
 
                 """
+                if not enabled or keyword == None or keyword == "":
+                    # No filter applied or disabled
+                    return df
 
                 return df[
                     df[options].apply(  # applies filter to columns specified by options
@@ -461,7 +470,7 @@ class GUI:
                 ]
 
             # BEGIN: search filters
-            def update_amount_filter(df, value, option, enabled=True):
+            def update_amount_filter(df, value, option, enabled):
                 """Updates filter for amount column in tabulator.
 
                 Parameters
@@ -478,23 +487,25 @@ class GUI:
                 if not enabled or value == None:
                     # No filter applied or disabled
                     return df
+
+                if option == "Above amount":
+                    return df[df["Amount"] >= value]
                 else:
-                    if option == "Above amount":
-                        return df[df["Amount"] >= value]
-                    elif option == "Below amount":
-                        return df[df["Amount"] <= value]
+                    return df[df["Amount"] <= value]
 
             ## Create tabulator filters with pn.bind
             keyword_filter = pn.bind(
                 update_keyword_filter,
                 keyword=self.components["data"]["search"]["keyword_filter_input"],
                 options=self.components["data"]["search"]["keyword_filter_options"],
+                enabled=self.components["data"]["search"]["keyword_filter_enabler"],
             )
 
             amount_filter = pn.bind(
                 update_amount_filter,
                 value=self.components["data"]["search"]["amount_filter_input"],
-                option=self.components["data"]["search"]["amount_filter_changer"],
+                option=self.components["data"]["search"]["amount_filter_options"],
+                enabled=self.components["data"]["search"]["amount_filter_enabler"],
             )
 
             self.components["data"]["tabulator"].add_filter(keyword_filter)
@@ -553,7 +564,23 @@ class GUI:
             def __search_layout() -> pn.Column():
                 """Creates the layout of the "search" tab."""
 
-                return pn.Column(*self.components["data"]["search"].values())
+                search_layout = pn.Column(
+                    pn.Row(
+                        self.components["data"]["search"]["keyword_filter_text"],
+                        self.components["data"]["search"]["keyword_filter_enabler"],
+                    ),
+                    self.components["data"]["search"]["keyword_filter_input"],
+                    self.components["data"]["search"]["keyword_filter_options"],
+                    pn.Row(
+                        self.components["data"]["search"]["amount_filter_text"],
+                        self.components["data"]["search"]["amount_filter_enabler"],
+                    ),
+                    self.components["data"]["search"]["amount_filter_options"],
+                    self.components["data"]["search"]["amount_filter_input"],
+                    self.components["data"]["search"]["time_filter"],
+                )
+
+                return search_layout
 
             def __manage_layout() -> pn.Column():
                 """Creates the layout for the "manage" tab."""
@@ -563,7 +590,7 @@ class GUI:
 
             return pn.Tabs(
                 ("Add", __add_data_layout()),
-                ("Search", __search_layout()),
+                ("Find", __search_layout()),
                 ("Manage", __manage_layout()),
             )
 

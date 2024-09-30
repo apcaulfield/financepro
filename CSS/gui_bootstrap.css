@@ -2,3 +2,10 @@
 .navbar {
     background-color: #832714 !important;
 }
+
+/* Tabs in sidebar */
+.bk-tab {
+    width: 110px;
+    font-size: 14px;
+    font-weight: bold;
+}
