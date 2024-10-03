@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class Expense(msgspec.Struct):
     """Describes data associated with an expense."""
 
+    id: bytes
     amount: float
     name: str
     category: str

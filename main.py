@@ -1,6 +1,7 @@
 """Creates GUI contents, layouts, and dependencies."""
 
 from typing import Dict, Any
+import uuid
 import pandas as pd
 import panel as pn
 
@@ -340,7 +341,17 @@ class GUI:
                     # Don't save current expense
                     return
 
+                # Generate new expense ID
+                new_id = uuid.uuid4().bytes
+                while any(
+                    expense.id == new_id
+                    for expense in self.data_manager.combined_user_data.expenses
+                ):
+                    # ID already taken
+                    new_id = uuid.uuid4().bytes
+
                 expense_data = Expense(
+                    id=new_id,
                     amount=self.components["data"]["add"]["amount"].value,
                     name=self.components["data"]["add"]["name"].value,
                     category=self.components["data"]["add"]["category"].value,
