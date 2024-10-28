@@ -10,16 +10,15 @@ from data_manager import DataManager, UserData, Expense
 # Default height of the MultiChoice widget
 MULTICHOICE_HEIGHT = 66
 
-# Load CSS formatting file
-with open("CSS/gui_bootstrap.css") as f:
-    pn.config.raw_css.append(f.read())
-
 pn.extension(notifications=True)
 
 
 class GUI:
     def __init__(self):
+        pn.extension(notifications=True)
+
         self.data_manager = DataManager()
+
         self.template = pn.template.BootstrapTemplate(
             title=f"Finance Pro: {self.data_manager.username}",
         )
